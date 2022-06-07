@@ -1,5 +1,6 @@
 package com.codepath.android.booksearch.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -8,6 +9,9 @@ import android.view.View;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.MenuItemCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -19,6 +23,7 @@ import com.codepath.asynchttpclient.callback.JsonHttpResponseHandler;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.parceler.Parcels;
 
 import java.util.ArrayList;
 
@@ -30,6 +35,18 @@ public class BookListActivity extends AppCompatActivity {
     private BookAdapter bookAdapter;
     private BookClient client;
     private ArrayList<Book> abooks;
+
+    // Instance of the progress action-view
+    MenuItem miActionProgressItem;
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        // Store instance of the menu item containing progress
+        miActionProgressItem = menu.findItem(R.id.miActionProgress);
+
+        // Return to finish
+        return super.onPrepareOptionsMenu(menu);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,7 +74,10 @@ public class BookListActivity extends AppCompatActivity {
                 // Checkpoint #5
                 // Hook up Book Detail View
                 // see https://guides.codepath.org/android/Using-the-RecyclerView#attaching-click-handlers-using-listeners for setting up click listeners
-
+                Intent intent = new Intent(itemView.getContext(), BookDetailActivity.class);
+                Book book = abooks.get(position);
+                intent.putExtra(Book.class.getSimpleName(), Parcels.wrap(book));
+                itemView.getContext().startActivity(intent);
                 // Create Intent to start BookDetailActivity
                 // Get Book at the given position
                 // Pass the book into details activity using extras
@@ -72,7 +92,12 @@ public class BookListActivity extends AppCompatActivity {
         rvBooks.setLayoutManager(new LinearLayoutManager(this));
 
         // Fetch the data remotely
-        fetchBooks("Oscar Wilde");
+        // fetchBooks("Oscar Wilde");
+        // Find the toolbar view inside the activity layout
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        // Sets the Toolbar to act as the ActionBar for this Activity window.
+        // Make sure the toolbar exists in the activity and is not null
+        setSupportActionBar(toolbar);
     }
 
     // Executes an API call to the OpenLibrary search endpoint, parses the results
@@ -86,6 +111,7 @@ public class BookListActivity extends AppCompatActivity {
                 try {
                     JSONArray docs;
                     if (response != null) {
+                        JSON test =  response;
                         // Get the docs json array
                         docs = response.jsonObject.getJSONArray("docs");
                         // Parse json array into array of model objects
@@ -98,6 +124,7 @@ public class BookListActivity extends AppCompatActivity {
                         }
                         bookAdapter.notifyDataSetChanged();
                     }
+                    hideProgressBar();
                 } catch (JSONException e) {
                     // Invalid JSON format, show appropriate error.
                     e.printStackTrace();
@@ -121,10 +148,36 @@ public class BookListActivity extends AppCompatActivity {
         // Add SearchView to Toolbar
         // Refer to http://guides.codepath.org/android/Extended-ActionBar-Guide#adding-searchview-to-actionbar guide for more details
 
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        final SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                // perform query here
+                showProgressBar();
+                fetchBooks(query);
 
+
+                // workaround to avoid issues with some emulators and keyboard devices firing twice if a keyboard enter is used
+                // see https://code.google.com/p/android/issues/detail?id=24599
+                searchView.clearFocus();
+
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        // Expand the search view and request focus
+        searchItem.expandActionView();
+        searchView.requestFocus();
+
+
+        return super.onCreateOptionsMenu(menu);
         // Checkpoint #7 Show Progress Bar
         // see https://guides.codepath.org/android/Handling-ProgressBars#progress-within-actionbar
-        return true;
     }
 
     @Override
@@ -140,5 +193,15 @@ public class BookListActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    public void showProgressBar() {
+        // Show progress item
+        miActionProgressItem.setVisible(true);
+    }
+
+    public void hideProgressBar() {
+        // Hide progress item
+        miActionProgressItem.setVisible(false);
     }
 }
